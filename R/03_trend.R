@@ -99,7 +99,9 @@ unc_final <- function(x){
     rownames_to_column() %>%
     rename(val = 2) %>% 
     pivot_wider(names_from = rowname,
-                values_from = val)
+                values_from = val) %>% 
+    mutate(ssl_sim = list(data.frame(sim,
+                                    id = 1:1000)))
 }
 
 set.seed(2021)
@@ -111,6 +113,30 @@ ter_unc <- terek %>%
   unnest(cols = c(data, ssl_sim)) %>% 
   ungroup()
 
+ter_boot <- ter_unc  %>% 
+  group_by(label) %>% 
+  mutate(average = mean(ssl, na.rm = T)) %>% 
+  dplyr::select(-ssd) %>% 
+  unnest(cols = c(ssl_sim)) %>% 
+  group_by(label, average, id) %>% 
+  nest() %>% 
+  mutate(mod = map(data,
+                   ~lm(sim ~ year,
+                       data = .x))) %>% 
+  mutate(slope = map_dbl(mod, ~(.x$coefficients[2]))) %>% 
+  mutate(dec_change = slope / average * 100) %>% 
+  dplyr::select(-data, -mod) %>% 
+  ungroup() 
+
+ter_boot_ci <- ter_boot %>% 
+  group_by(label) %>% 
+  summarise(mean = mean(dec_change),
+            `2.5%` = quantile(dec_change,
+                              probs = 0.025),
+            `97.5%` = quantile(dec_change,
+                               probs = 0.975))
+
+tgme("ter_boot")
 # 3) Trend slopes ---------------------------------------------------------
 ter_ols <-
   ter_unc %>% 
@@ -288,24 +314,25 @@ gl_unc <- gldf %>%
   unnest(cols = c(data, gl_sim)) %>% 
   ungroup()
 
-gl_unc  %>% 
+gl_boot <- gl_unc  %>% 
   group_by(label) %>% 
   mutate(average = mean(glacier, na.rm = T)) %>% 
   filter(!label %in% c("Bel-Ko",
                        "Nal-Be",
                        "Kam-Ol")) %>% 
   dplyr::select(-area) %>% 
-  unnest() %>% 
+  unnest(cols = c(gl_sim)) %>% 
   group_by(label, average, id) %>% 
   nest() %>% 
   mutate(mod = map(data,
                    ~lm(sim ~ year,
                        data = .x))) %>% 
-  mutate(average = map_dbl(data, ~(mean(.x$sim, na.rm = T)))) %>%
   mutate(slope = map_dbl(mod, ~(.x$coefficients[2]))) %>% 
   mutate(dec_change = slope / average * 100) %>% 
   dplyr::select(-data, -mod) %>% 
-  ungroup() %>% 
+  ungroup() 
+
+gl_boot_ci <- gl_boot %>% 
   group_by(label) %>% 
   summarise(mean = mean(dec_change),
             `2.5%` = quantile(dec_change,
@@ -313,15 +340,12 @@ gl_unc  %>%
             `97.5%` = quantile(dec_change,
                               probs = 0.975))
 
-
-  
-
 gl_ols <-
   gl_unc %>% 
   filter(!label %in% c("Bel-Ko",
                        "Nal-Be",
                        "Kam-Ol")) %>% 
-  dplyr::select(-area) %>% 
+  dplyr::select(-area, -gl_sim) %>% 
   group_by(label) %>% 
   mutate(average = mean(glacier, na.rm = T)) %>% 
   gather(var, val, -year, -label, -average) %>% 
@@ -338,6 +362,11 @@ gl_ols <-
   mutate(dec_change = slope / average * 100) %>% 
   dplyr::select(-data, -mod) %>% 
   ungroup()
+
+gl_ols %>% 
+  slope_ci() %>% 
+  left_join(gl_boot_ci,
+            by = "label")
 
 # 6) Cropland changes -----------------------------------------------------
 load("data/tidy/ter_cropland.Rdata")
@@ -362,7 +391,9 @@ ucr <- function(x){
     rownames_to_column() %>%
     rename(val = 2) %>% 
     pivot_wider(names_from = rowname,
-                values_from = val)
+                values_from = val) %>% 
+    mutate(cr_sim = list(data.frame(sim,
+                                    id = 1:1000)))
   
 }
 
@@ -374,9 +405,33 @@ crop_unc <- crop_df %>%
   unnest(cols = c(data, crop_sim)) %>% 
   ungroup()
 
+crop_boot <- crop_unc  %>% 
+  group_by(label) %>% 
+  mutate(average = mean(crop, na.rm = T)) %>% 
+  dplyr::select(-area) %>% 
+  unnest(cols = c(cr_sim)) %>% 
+  group_by(label, average, id) %>% 
+  nest() %>% 
+  mutate(mod = map(data,
+                   ~lm(sim ~ year,
+                       data = .x))) %>% 
+  mutate(slope = map_dbl(mod, ~(.x$coefficients[2]))) %>% 
+  mutate(dec_change = slope / average * 100) %>% 
+  dplyr::select(-data, -mod) %>% 
+  ungroup() 
+tgme("fin")
+
+crop_boot_ci <- crop_boot %>% 
+  group_by(label) %>% 
+  summarise(mean = mean(dec_change),
+            `2.5%` = quantile(dec_change,
+                              probs = 0.025),
+            `97.5%` = quantile(dec_change,
+                               probs = 0.975))
+
 crop_ols <-
   crop_unc %>% 
-  dplyr::select(-area) %>% 
+  dplyr::select(-area, -cr_sim) %>% 
   group_by(label) %>% 
   mutate(average = mean(crop, na.rm = T)) %>% 
   gather(var, val, -year, -label, -average) %>% 
@@ -417,7 +472,9 @@ ufor <- function(x){
     rownames_to_column() %>%
     rename(val = 2) %>% 
     pivot_wider(names_from = rowname,
-                values_from = val)
+                values_from = val) %>% 
+    mutate(forest_sim = list(data.frame(sim,
+                                    id = 1:1000)))
   
 }
 
@@ -429,9 +486,34 @@ forest_unc <- for_df %>%
   unnest(cols = c(data, for_sim)) %>% 
   ungroup()
 
+forest_boot <- forest_unc  %>% 
+  group_by(label) %>% 
+  mutate(average = mean(forest, na.rm = T)) %>% 
+  dplyr::select(-area) %>% 
+  unnest(cols = c(forest_sim)) %>% 
+  group_by(label, average, id) %>% 
+  nest() %>% 
+  mutate(mod = map(data,
+                   ~lm(sim ~ year,
+                       data = .x))) %>% 
+  mutate(slope = map_dbl(mod, ~(.x$coefficients[2]))) %>% 
+  mutate(dec_change = slope / average * 100) %>% 
+  dplyr::select(-data, -mod) %>% 
+  ungroup() 
+
+forest_boot_ci <- forest_boot %>% 
+  group_by(label) %>% 
+  summarise(mean = mean(dec_change),
+            `2.5%` = quantile(dec_change,
+                              probs = 0.025),
+            `97.5%` = quantile(dec_change,
+                               probs = 0.975))
+
+tgme("forest_boot")
+
 forest_ols <-
   forest_unc %>% 
-  dplyr::select(-area) %>% 
+  dplyr::select(-area, -forest_sim) %>% 
   group_by(label) %>% 
   mutate(average = mean(forest, na.rm = T)) %>% 
   gather(var, val, -year, -label, -average) %>% 
@@ -621,9 +703,54 @@ noter %>%
   atslib::Add_R2()
 
 # 13) Monte Carlo correlation ---------------------------------------------
+boot_change <- ter_boot %>% 
+  transmute(label,
+            id,
+            ssl_change = dec_change) %>% 
+  left_join(gl_boot %>% 
+              transmute(
+                label,
+                id,
+                gl_change = dec_change
+              ),
+            by = c("label", "id")) %>% 
+  left_join(crop_boot %>% 
+              transmute(
+                label,
+                id,
+                crop_change = dec_change
+              ),
+            by = c("label", "id")) %>% 
+  left_join(forest_boot %>% 
+              transmute(
+                label,
+                id,
+                forest_change = dec_change
+              ),
+            by = c("label", "id")) 
 
+boot_cor <- boot_change %>% 
+  select(-label) %>% 
+  group_by(id) %>% 
+  nest() %>%
+  mutate(cor = map(data,
+                   ~corrr::correlate(.x,
+                                     method = "spearman",
+                                     use = "pairwise.complete.obs",
+                                     quiet = T) %>% 
+                     focus(ssl_change))) %>% 
+  unnest(cols = c(cor))
 
-
+boot_cor %>% 
+  ggplot(aes(y = ssl_change,
+             x = term)) +
+  geom_hline(yintercept = 0) + 
+  geom_boxplot() +
+  scale_y_continuous(breaks = seq(-.5, .5, .1),
+                     minor_breaks = NULL) +
+  see::theme_lucid() +
+  theme(panel.grid.major.x = element_blank())
+  
 # SAVE --------------------------------------------------------------------
 ggsave("figures/publ/fig03_trend-plots.png",
        ter_trends,
