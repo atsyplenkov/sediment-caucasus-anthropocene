@@ -10,6 +10,7 @@ library(stringi)
 library(truncnorm)
 library(sf)
 library(skimr)
+library(tgme)
 
 theme_set(
   theme_lucid(base_family = "Roboto Condensed") +
@@ -140,7 +141,7 @@ tgme("ter_boot")
 # 3) Trend slopes ---------------------------------------------------------
 ter_ols <-
   ter_unc %>% 
-  dplyr::select(-ssd) %>% 
+  dplyr::select(-ssd, -ssl_sim) %>% 
   group_by(label) %>% 
   mutate(average = mean(ssl, na.rm = T)) %>% 
   gather(var, val, -year, -label, -average) %>% 
@@ -363,10 +364,7 @@ gl_ols <-
   dplyr::select(-data, -mod) %>% 
   ungroup()
 
-gl_ols %>% 
-  slope_ci() %>% 
-  left_join(gl_boot_ci,
-            by = "label")
+tgme("gl")
 
 # 6) Cropland changes -----------------------------------------------------
 load("data/tidy/ter_cropland.Rdata")
@@ -419,7 +417,6 @@ crop_boot <- crop_unc  %>%
   mutate(dec_change = slope / average * 100) %>% 
   dplyr::select(-data, -mod) %>% 
   ungroup() 
-tgme("fin")
 
 crop_boot_ci <- crop_boot %>% 
   group_by(label) %>% 
@@ -449,6 +446,7 @@ crop_ols <-
   dplyr::select(-data, -mod) %>% 
   ungroup()
 
+tgme("crop")
 # 7) Forest change --------------------------------------------------------
 load("data/tidy/ter_forest.Rdata")
 
@@ -534,7 +532,7 @@ forest_ols <-
 # 8) After 1984 -----------------------------------------------------------
 ter_ols_1987 <-
   ter_unc %>% 
-  dplyr::select(-ssd) %>% 
+  dplyr::select(-ssd, -ssl_sim) %>% 
   rename(ssl87 = ssl) %>% 
   # filter(year >= 1987) %>%
   filter(between(year, 1987, 2015))  %>% 
@@ -558,6 +556,35 @@ ter_ols_1987 <-
   dplyr::select(-data, -mod) %>% 
   ungroup()
 
+ter_boot_1987 <-
+  ter_unc  %>% 
+  filter(between(year, 1987, 2015))  %>% 
+  group_by(label) %>% 
+  mutate(average = mean(ssl, na.rm = T)) %>% 
+  dplyr::select(-ssd) %>% 
+  unnest(cols = c(ssl_sim)) %>% 
+  group_by(label, average, id) %>% 
+  nest() %>% 
+  mutate(mod = map(data,
+                   ~lm(sim ~ year,
+                       data = .x))) %>% 
+  mutate(slope = map_dbl(mod, ~(.x$coefficients[2]))) %>% 
+  mutate(dec_change = slope / average * 100) %>% 
+  dplyr::select(-data, -mod) %>% 
+  ungroup() 
+
+ter_boot_ci_1987 <- ter_boot_1987 %>% 
+  group_by(label) %>% 
+  summarise(mean = mean(dec_change, na.rm = T),
+            `2.5%` = quantile(dec_change,
+                              probs = 0.025,
+                              na.rm = T),
+            `97.5%` = quantile(dec_change,
+                               probs = 0.975,
+                               na.rm = T))
+
+tgme("1987")
+
 # 9) Collective table -----------------------------------------------------
 all_ols <- ter_ols %>% 
   slope_ci() %>% 
@@ -576,13 +603,13 @@ all_ols <- ter_ols %>%
   
 ter_alt <- read_xlsx("analysis/table1.xlsx") %>% 
   janitor::clean_names() %>% 
-  dplyr::select(label, alt_group)
+  dplyr::select(label, alt_group, altitude_m)
 
-ter_alt %>% 
-  left_join(all_ols,
-            by = "label") %>% 
-  drop_na(ssl) %>% 
-  writexl::write_xlsx("analysis/table2_16may.xlsx")
+# ter_alt %>% 
+#   left_join(all_ols,
+#             by = "label") %>% 
+#   drop_na(ssl) %>% 
+#   writexl::write_xlsx("analysis/table2_16may.xlsx")
 
 # 10) Explore -------------------------------------------------------------
 ter_ols %>% 
@@ -597,21 +624,20 @@ ter_ols %>%
   filter(dec_change > 0) %>% 
   skim()
 
-  ter_ols_1987 %>% 
-    filter(var == "ssl87") %>%
-    mutate(tt = dec_change > 0) %>% 
-    group_by(tt) %>%
-    skim()
-  
+ter_ols_1987 %>% 
+  filter(var == "ssl87") %>%
+  mutate(tt = dec_change > 0) %>% 
+  group_by(tt) %>%
+  skim()
+
 crop_ols %>% 
   filter(var == "crop") %>% 
   filter(dec_change < 0) %>% 
-    summary()
+  summary()
 
 gl_ols %>% 
   filter(var == "glacier") %>% 
   summary()
-
 
 # 11) Discuss -------------------------------------------------------------
 ols_to_gr <- function(df){
@@ -702,56 +728,11 @@ noter %>%
   geom_point() +
   atslib::Add_R2()
 
-# 13) Monte Carlo correlation ---------------------------------------------
-boot_change <- ter_boot %>% 
-  transmute(label,
-            id,
-            ssl_change = dec_change) %>% 
-  left_join(gl_boot %>% 
-              transmute(
-                label,
-                id,
-                gl_change = dec_change
-              ),
-            by = c("label", "id")) %>% 
-  left_join(crop_boot %>% 
-              transmute(
-                label,
-                id,
-                crop_change = dec_change
-              ),
-            by = c("label", "id")) %>% 
-  left_join(forest_boot %>% 
-              transmute(
-                label,
-                id,
-                forest_change = dec_change
-              ),
-            by = c("label", "id")) 
-
-boot_cor <- boot_change %>% 
-  select(-label) %>% 
-  group_by(id) %>% 
-  nest() %>%
-  mutate(cor = map(data,
-                   ~corrr::correlate(.x,
-                                     method = "spearman",
-                                     use = "pairwise.complete.obs",
-                                     quiet = T) %>% 
-                     focus(ssl_change))) %>% 
-  unnest(cols = c(cor))
-
-boot_cor %>% 
-  ggplot(aes(y = ssl_change,
-             x = term)) +
-  geom_hline(yintercept = 0) + 
-  geom_boxplot() +
-  scale_y_continuous(breaks = seq(-.5, .5, .1),
-                     minor_breaks = NULL) +
-  see::theme_lucid() +
-  theme(panel.grid.major.x = element_blank())
-  
 # SAVE --------------------------------------------------------------------
+ls()[str_detect(ls(), "boot")] %>%
+  save(list = .,
+       file = "data/tidy/boot_results.Rdata")
+
 ggsave("figures/publ/fig03_trend-plots.png",
        ter_trends,
        dpi = 600,
