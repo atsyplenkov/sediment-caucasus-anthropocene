@@ -393,7 +393,11 @@ boot_area <- ter_boot %>%
   dplyr::select(-fullname) %>% 
   mutate(alt_group = as_factor(alt_group)) %>% 
   mutate(alt_group = fct_relevel(alt_group,
-                                 "< 500", "500-1000"))
+                                 "< 500", "500-1000")) %>% 
+  mutate(alt_group = fct_recode(alt_group,
+                                "(a) < 500" = "< 500",
+                                "(b) 500-1000" = "500-1000",
+                                "(c) > 1000" = "> 1000"))
 
 boot_cor_area <-
   boot_area %>% 
@@ -402,7 +406,7 @@ boot_cor_area <-
   nest() %>%
   mutate(cor = map(data,
                    ~corrr::correlate(.x,
-                                     method = "spearman",
+                                     method = "spearman", 
                                      use = "pairwise.complete.obs",
                                      quiet = T) %>% 
                      corrr::focus(ssl))) %>% 
