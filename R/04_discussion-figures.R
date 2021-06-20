@@ -6,11 +6,13 @@ library(see)
 load("data/tidy/boot_results.Rdata")
 
 theme_set(
-  theme_lucid(legend.position = "bottom") +
+  theme_lucid(legend.position = "bottom",
+              base_family = "Noto Sans") +
     theme(panel.grid.minor.x = element_blank(),
           panel.grid.minor.y = element_blank(),
           panel.grid.major.x = element_blank(),
           panel.grid.major.y = element_blank(),
+          strip.background = element_blank(),
           axis.ticks = element_line(color = "grey50"))
 )
 

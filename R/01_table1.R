@@ -147,7 +147,9 @@ table1 <- ter_gvk %>%
                                    "500-1000",
                                    "> 1000"))) %>% 
   group_by(alt_group) %>% 
-  arrange(label, .by_group = T)
+  arrange(label, .by_group = T) %>% 
+  ungroup() %>% 
+  filter(label %in% all_rivers)
 
 # 5) Create Supplementary Table 1 -------------------------------------------------------
 sup_table1 <- dams %>% 
@@ -166,13 +168,15 @@ library(writexl)
 table1 %>% 
   mutate_at(vars(area, H),
             ~round(.)) %>% 
-  select(-mean_range, -max_range) %>% 
-  rename(`Gauging station` = fullname,
-         Label = label,
-         `Area (A), km2` = area,
-         `Altitude, m` = H,
-         `SSD, kg/s` = mean,
-         `Comments` = dam_effect) %>% 
+  transmute(`Gauging station` = fullname,
+            Label = label,
+            `Area (A), km2` = area,
+            `Altitude, m` = H,
+            `Mean annual suspended sediment discharge, kg/s` = atslib::smart_round(mean),
+            `Number of mean annual SSD values, years` = mean_n,
+            `Years range` = mean_range,
+            `Comments` = dam_effect,
+            alt_group) %>% 
   writexl::write_xlsx("analysis/table1.xlsx")
 
 sup_table1 %>% 
