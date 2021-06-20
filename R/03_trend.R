@@ -13,10 +13,14 @@ library(skimr)
 library(tgme)
 
 theme_set(
-  theme_lucid(base_family = "Roboto Condensed") +
-    theme(legend.position = "bottom",
-          strip.background = element_blank()
-    )
+  theme_lucid(legend.position = "bottom",
+              base_family = "Noto Sans") +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.major.y = element_blank(),
+          strip.background = element_blank(),
+          axis.ticks = element_line(color = "grey50"))
 )
 
 major_rivers <- c("Ard-Ta",
@@ -586,102 +590,126 @@ ter_boot_ci_1987 <- ter_boot_1987 %>%
 tgme("1987")
 
 # 9) Collective table -----------------------------------------------------
-all_ols <- ter_ols %>% 
-  slope_ci() %>% 
-  left_join(ter_ols_1987 %>% 
-              slope_ci(),
+# all_ols <- ter_ols %>% 
+#   slope_ci() %>% 
+#   left_join(ter_ols_1987 %>% 
+#               slope_ci(),
+#             by = "label") %>% 
+#   left_join(crop_ols %>% 
+#               slope_ci(),
+#             by = "label") %>% 
+#   left_join(forest_ols %>% 
+#               slope_ci(),
+#             by = "label") %>% 
+#   left_join(gl_ols %>% 
+#               slope_ci(),
+#             by = "label")
+
+boot_ci <- function(obj){
+  
+  what <- deparse(substitute(obj)) %>% 
+    str_remove(., "_boot_ci")
+  
+  obj %>% 
+    mutate_if(is.numeric,
+              ~smart_round(.)) %>% 
+    transmute(label,
+              tt = glue("{mean} [{`2.5%`}; {`97.5%`}]")) %>% 
+    magrittr::set_colnames(c("label", what))
+  
+}
+
+all_boot <- boot_ci(ter_boot_ci) %>% 
+  left_join(boot_ci(ter_boot_ci_1987),
             by = "label") %>% 
-  left_join(crop_ols %>% 
-              slope_ci(),
+  left_join(boot_ci(crop_boot_ci),
             by = "label") %>% 
-  left_join(forest_ols %>% 
-              slope_ci(),
+  left_join(boot_ci(forest_boot_ci),
             by = "label") %>% 
-  left_join(gl_ols %>% 
-              slope_ci(),
+  left_join(boot_ci(gl_boot_ci) ,
             by = "label")
   
 ter_alt <- read_xlsx("analysis/table1.xlsx") %>% 
   janitor::clean_names() %>% 
   dplyr::select(label, alt_group, altitude_m)
 
-# ter_alt %>% 
-#   left_join(all_ols,
-#             by = "label") %>% 
-#   drop_na(ssl) %>% 
-#   writexl::write_xlsx("analysis/table2_16may.xlsx")
+ter_alt %>%
+  left_join(all_boot,
+            by = "label") %>% 
+  dplyr::select(dplyr::everything(), -altitude_m) %>% 
+  writexl::write_xlsx("analysis/table2.xlsx")
 
 # 10) Explore -------------------------------------------------------------
-ter_ols %>% 
-  filter(var == "ssl") %>%
+ter_boot_ci %>% 
   left_join(ter_alt,
             by = "label") %>%
   drop_na(alt_group) %>% 
   mutate(alt_group = as_factor(alt_group)) %>% 
   mutate(alt_group = fct_relevel(alt_group,
                                  "< 500", "500-1000")) %>% 
-  group_by(alt_group) %>% 
-  filter(dec_change > 0) %>% 
+  # group_by(alt_group) %>% 
+  filter(mean > 0) %>%
   skim()
 
-ter_ols_1987 %>% 
-  filter(var == "ssl87") %>%
-  mutate(tt = dec_change > 0) %>% 
+
+ter_boot_ci_1987 %>% 
+  filter(label %in% c("Mal-Pr", "Sun-Br", "Sun-Gr", "Ter-Ch", "Ter-El", "Ter-Ka", "Ter-Ko", "Ter-Mo", "Ter-St", "Ard-Ta", "Bak-Za", "Bel-Ko", "Che-Ba", "Che-So", "Cheg-Nc", "Fia-Gu", "Fia-Ta", "Giz-Gi", "Kam-Ol", "Mal-Ka", "Mal-Kh", "Ter-Vl", "Uru-Kh", "Ard-Nz", "Cheg-Vc", "Fia-Vf")) %>% 
+  mutate(tt = mean > 0) %>% 
   group_by(tt) %>%
   skim()
 
-crop_ols %>% 
-  filter(var == "crop") %>% 
-  filter(dec_change < 0) %>% 
+crop_boot_ci %>% 
+  filter(mean < 0) %>%
   summary()
 
-gl_ols %>% 
-  filter(var == "glacier") %>% 
+gl_boot_ci %>% 
+  # filter(mean < 0) %>% 
   summary()
+
 
 # 11) Discuss -------------------------------------------------------------
-ols_to_gr <- function(df){
-  
-  what <- unique(df$var)[str_detect(unique(df$var),
-                                    "2.5|9",
-                                    negate = T)]
-  df %>% 
-    filter(var == what) %>%
-    left_join(ter_alt,
-              by = "label") %>%
-    drop_na(alt_group) %>% 
-    mutate(alt_group = as_factor(alt_group)) %>% 
-    mutate(alt_group = fct_relevel(alt_group,
-                                   "< 500", "500-1000")) %>% 
-    group_by(alt_group) %>% 
-    summarise(mean = mean(dec_change, na.rm = T),
-              sd = sd(dec_change, na.rm = T),
-              se = sd/sqrt(n()),
-              q25 = quantile(dec_change,
-                             na.rm = T,
-                             probs = .25),
-              median = median(dec_change, na.rm = T),
-              q75 = quantile(dec_change,
-                             na.rm = T,
-                             probs = .75),
-              .groups = "drop") %>% 
-    mutate(type = what)
-  
-}
-
-table6 <- list(ter_ols,
-     ter_ols_1987,
-     crop_ols,
-     forest_ols,
-     gl_ols) %>% 
-  map_dfr(ols_to_gr) %>% 
-  gather(var, val, -type, -alt_group) %>% 
-  spread(type, val) %>% 
-  dplyr::select(alt_group, var,
-                ssl, ssl87,
-                everything()) %>% 
-  mutate_if(is.numeric,
-            ~atslib::smart_round(.))
+# ols_to_gr <- function(df){
+#   
+#   what <- unique(df$var)[str_detect(unique(df$var),
+#                                     "2.5|9",
+#                                     negate = T)]
+#   df %>% 
+#     filter(var == what) %>%
+#     left_join(ter_alt,
+#               by = "label") %>%
+#     drop_na(alt_group) %>% 
+#     mutate(alt_group = as_factor(alt_group)) %>% 
+#     mutate(alt_group = fct_relevel(alt_group,
+#                                    "< 500", "500-1000")) %>% 
+#     group_by(alt_group) %>% 
+#     summarise(mean = mean(dec_change, na.rm = T),
+#               sd = sd(dec_change, na.rm = T),
+#               se = sd/sqrt(n()),
+#               q25 = quantile(dec_change,
+#                              na.rm = T,
+#                              probs = .25),
+#               median = median(dec_change, na.rm = T),
+#               q75 = quantile(dec_change,
+#                              na.rm = T,
+#                              probs = .75),
+#               .groups = "drop") %>% 
+#     mutate(type = what)
+#   
+# }
+# 
+# table6 <- list(ter_ols,
+#      ter_ols_1987,
+#      crop_ols,
+#      forest_ols,
+#      gl_ols) %>% 
+#   map_dfr(ols_to_gr) %>% 
+#   gather(var, val, -type, -alt_group) %>% 
+#   spread(type, val) %>% 
+#   dplyr::select(alt_group, var,
+#                 ssl, ssl87,
+#                 everything()) %>% 
+#   mutate_if(is.numeric,
+#             ~atslib::smart_round(.))
 
 rets_trend <- read_xlsx("data/raw/terek_SY.xlsx",
                         sheet = 1,
@@ -733,8 +761,8 @@ ls()[str_detect(ls(), "boot")] %>%
   save(list = .,
        file = "data/tidy/boot_results.Rdata")
 
-ggsave("figures/publ/fig03_trend-plots.png",
-       ter_trends,
+ggsave("figures/fig3_trend-plots.png",
+       plot = ter_trends,
        dpi = 600,
        w = 12, h = 6)
 

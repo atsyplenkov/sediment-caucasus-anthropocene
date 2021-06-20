@@ -2,6 +2,9 @@ library(tidyverse)
 library(corrr)
 library(atslib)
 library(see)
+library(extrafont)
+library(readxl)
+library(stringi)
 
 load("data/tidy/boot_results.Rdata")
 
@@ -16,49 +19,72 @@ theme_set(
           axis.ticks = element_line(color = "grey50"))
 )
 
-t1 <- ter_ols_1987 %>% 
-  filter(var == "ssl87") %>% 
-  select(label,
-         ssl = dec_change)
+ter_gvk <- read_xlsx("data/raw/terek_SY.xlsx",
+                     sheet = 1,
+                     range = "A1:C39") %>% 
+  rename(fullname = 1,
+         area = 3) %>% 
+  mutate(fullname = stri_trans_general(fullname,
+                                       "russian-latin/bgn")) 
 
-t2 <- crop_ols %>% 
-  filter(var == "crop") %>% 
-  select(label,
-         crop = dec_change)
+ter_alt <- read_xlsx("analysis/table1.xlsx") %>% 
+  janitor::clean_names() %>% 
+  dplyr::select(label, alt_group, altitude_m)
 
-
-t3 <- forest_ols %>% 
-  filter(var == "forest") %>% 
-  select(label,
-         forest = dec_change)
-
-t4 <- gl_ols %>% 
-  filter(var == "glacier") %>% 
-  select(label,
-         glacier = dec_change)
-
-t1 %>% 
-  left_join(t2) %>% 
-  left_join(t3) %>% 
-  left_join(t4) %>% 
-  drop_na(crop) %>% 
-  filter(forest > 0) %>%
-  filter(crop < 0) %>% 
-  select(-label) %>% 
-  corrr::correlate(method = "spearman")
-
-t1 %>% 
-  left_join(t2) %>% 
-  left_join(t3) %>% 
-  left_join(t4) %>% 
-  gather(var, val, -label, -ssl) %>% 
-  filter(between(ssl, -10, 5)) %>% 
-  ggplot(aes(y = ssl, x = val)) +
-  geom_point(alpha = .4) +
-  # atslib::Add_R2() +
-  facet_wrap(~var,
-             scales = "free")
- 
+# Trend distribution ------------------------------------------------------
+trend_dens <- ter_boot %>% 
+  dplyr::select(label,
+                id,
+                ssl = dec_change) %>% 
+  left_join(ter_gvk,
+            by = "label") %>% 
+  left_join(ter_alt,
+            by = "label") %>% 
+  drop_na(alt_group) %>% 
+  mutate(alt_group = as_factor(alt_group)) %>% 
+  mutate(alt_group = fct_relevel(alt_group,
+                                 "< 500", "500-1000")) %>% 
+  ggplot(aes(x = ssl,
+             y = ..scaled..,
+             color = alt_group,
+             fill = alt_group)) +
+  geom_vline(aes(xintercept = 0),
+             size = .5) +
+  geom_density(alpha = .5) +
+  geom_segment(data = . %>%
+                 group_by(alt_group) %>%
+                 summarise(med = density(ssl)$x[which.max(density(ssl)$y)]),
+               aes(x = med,
+                   xend = med,
+                   y = 0,
+                   yend = 1,
+                   color = alt_group),
+               linetype = "dashed",
+               show.legend = F) +
+  geom_text(data = . %>%
+              group_by(alt_group) %>%
+              summarise(med = density(ssl)$x[which.max(density(ssl)$y)]) %>% 
+              mutate(med = smart_round(med)),
+            aes(x = med,
+                y = 1,
+                label = med,
+                hjust = 0.5,
+                vjust = -0.5),
+            size = 3,
+            family = "Noto Sans",
+            show.legend = F) +
+  coord_cartesian(xlim = c(-3.1, 1.5), ylim = c(-0.005, 1.05),
+                  expand = F) +
+  scale_color_metro() +
+  scale_fill_metro() +
+  labs(color = "Altitude group",
+       fill = "Altitude group",
+       x = expression("SSL change, %"%.%"yr"^-1),
+       y = "Density") +
+  theme(plot.margin = unit(c(0.1,
+                             0.5, # right
+                             -0.1, # bottom
+                             0.1), "cm"))
 
 # 0) Trend vs altitude ----------------------------------------------------
 ter_boot_ci %>% 
@@ -110,7 +136,7 @@ ter_boot_ci %>%
                        color = "grey50") +
    labs(subtitle = "(a)",
         x = expression("Catchment area, km"^2),
-        y = "SSL change, %",
+        y = expression("SSL change, %"%.%"yr"^-1),
         fill = "Altitude group: ")) +
   theme(legend.position = "")
 
@@ -166,7 +192,7 @@ ter_boot_ci %>%
                        color = "grey50") +
    labs(subtitle = "(b)",
         x = "Glacier area in 1986, %",
-        y = "SSL change, %",
+        y = expression("SSL change, %"%.%"yr"^-1),
         color = "Altitude group: "))
 
 ter_boot_ci %>% 
@@ -223,7 +249,7 @@ ter_boot_ci %>%
                       color = "grey50") +
   labs(subtitle = "(c)",
        x = "Cropland area in 1987, %",
-       y = "SSL change, %",
+       y = expression("SSL change, %"%.%"yr"^-1),
        color = "Altitude group: "))
 
 ter_boot_ci %>% 
@@ -281,7 +307,7 @@ ter_boot_ci %>%
                         color = "grey50") +
     labs(subtitle = "(d)",
          x = "Forest area in 1987, %",
-         y = "SSL change, %",
+         y = expression("SSL change, %"%.%"yr"^-1),
          color = "Altitude group: "))
 
 ter_boot_ci %>% 
@@ -470,12 +496,17 @@ trend_unc_plots <- ggpubr::ggarrange(trend_area, trend_glacier,
                   common.legend = T,
                   legend = "bottom")
 
-ggsave("figures/fig5_trend_unc_plots.png",
+ggsave("figures/fig6_trend_density.png",
+       trend_dens,
+       dpi = 500,
+       w = 7, h = 4)
+
+ggsave("figures/fig7_trend_unc_plots.png",
        trend_unc_plots,
        dpi = 500,
        w = 8, h = 8)
 
-ggsave("figures/fig6_boot_cor_plot.png",
+ggsave("figures/fig8_boot_cor_plot.png",
        boot_cor_area_plot,
        dpi = 500,
        w = 7, h = 6)

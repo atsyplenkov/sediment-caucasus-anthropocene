@@ -1,0 +1,278 @@
+---
+title: "Supplementary 2"
+output: word_document
+bibliography: references.bib
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+An imputation of the missing values of the mean annual suspended sediment discharge (SSD) were done with the linear models. We used several meteorological parameters calculated on the basis of *in-situ* measurements at 7 meteostations: Kluhorskij pereval, Gudermes, Vladikavkaz, Kazbek mountain (Georgia), Nalcik, Shadzhatmaz and Oni (Georgia). Since there were also some gaps in air temperature and precipitation, we used the TerraClimate dataset to fill them. Data analysis was carried out in R using the 'easystats' collection of packages.
+
+We estimated five annual meteorological parameters for every meteostation and used them as predictors:
+
+1.  P --- annual sum of liquid precipitation, mm
+
+2.  n_rain --- number of wet days in a year, days
+
+3.  SDII --- simple precipitation intensity index, calculated as the daily precipitation amount on wet days (≥ 1 mm) in a certain time period divided by the number of wet days in that period.
+
+4.  Tav --- mean annual air temperature, °C
+
+5.  Tsum --- number of warm days (with average daily air temperature above 5°C) in a year, days
+
+```{r models, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(report)
+library(insight)
+library(parameters)
+library(performance)
+
+load("data/tidy/models.Rdata")
+```
+
+```{r model_compare, echo=FALSE, message=FALSE}
+
+compared <- performance::compare_performance(ardta_lm,
+                                 belko_lm,
+                                 cheba_lm,
+                                 chegnc_lm,
+                                 kamol_lm,
+                                 malka_lm,
+                                 sunbr_lm,
+                                 urukh_lm,
+                                 fiata_lm,
+                                 verbose = F)
+
+```
+
+Models performance indices are compared in the Table 1 below. All models explain a significant and substantial proportion of variance (mean R^2^ is `r round(mean(compared$R2), 2)`).
+
+**Table 1.** Comparison of performance indicies
+
+```{r table_compare, echo=FALSE, message=FALSE}
+
+print_md(compared)
+
+```
+
+##  Ard-Ta
+
+```{r report, echo=FALSE, results='asis'}
+
+paste(
+  "For Ardon-Tamisk we fit a ",
+  report_model(ardta_lm),
+  ". ",
+  report_performance(ardta_lm)
+) %>% 
+  str_replace_all("ssl2", "SSD") %>% 
+  cat()
+
+```
+
+**Table 2.** Model parameters of the Ard-Ta linear model
+
+```{r table, echo=FALSE}
+
+model_parameters(ardta_lm) %>% 
+  print_md()
+
+```
+
+## Bel-Ko
+
+```{r report2, echo=FALSE, results='asis'}
+
+paste(
+  "For Belaya - Korsa-Urdon we fit a ",
+  report_model(belko_lm),
+  ". ",
+  report_performance(belko_lm)
+) %>% 
+  str_replace_all("ssl2", "SSD") %>% 
+  cat()
+
+```
+
+**Table 3.** Model parameters of the Bel-Ko linear model
+
+```{r table2, echo=FALSE}
+
+model_parameters(belko_lm) %>% 
+  print_md()
+
+```
+
+## Che-Ba
+
+```{r report3, echo=FALSE, results='asis'}
+
+paste(
+  "For Cherek-Balkarsky - Babugent we fit a ",
+  report_model(cheba_lm),
+  ". ",
+  report_performance(cheba_lm)
+) %>% 
+  str_replace_all("ssl2", "SSD") %>% 
+  cat()
+
+```
+
+**Table 4.** Model parameters of the Che-Ba linear model
+
+```{r table3, echo=FALSE}
+
+model_parameters(cheba_lm) %>% 
+  print_md()
+
+```
+
+## Cheg-Nc
+
+```{r report4, echo=FALSE, results='asis'}
+
+paste(
+  "For r.Chegem - s.Nizhniy Chegem we fit a ",
+  report_model(chegnc_lm),
+  ". ",
+  report_performance(chegnc_lm)
+) %>% 
+  str_replace_all("ssl2", "SSD") %>% 
+  cat()
+
+```
+
+**Table 5.** Model parameters of the Cheg-Nc linear model
+
+```{r table4, echo=FALSE}
+
+model_parameters(chegnc_lm) %>% 
+  print_md()
+
+```
+
+## Kam-Ol
+
+```{r report5, echo=FALSE, results='asis'}
+
+paste(
+  "For r.Kambileyevka - s.Olʹginskoye we fit a ",
+  report_model(kamol_lm),
+  ". ",
+  report_performance(kamol_lm)
+) %>% 
+  str_replace_all("ssl2", "SSD") %>% 
+  cat()
+
+```
+
+**Table 6.** Model parameters of the Kam-Ol linear model
+
+```{r table5, echo=FALSE}
+
+model_parameters(kamol_lm) %>% 
+  print_md()
+
+```
+
+## Mal-Ka
+
+```{r report6, echo=FALSE, results='asis'}
+
+paste(
+  "For r.Malka - s.Kamennomostskoye we fit a ",
+  report_model(malka_lm),
+  ". ",
+  report_performance(malka_lm)
+) %>% 
+  str_replace_all("ssl2", "SSD") %>% 
+  cat()
+
+```
+
+**Table 7.** Model parameters of the Mal-Ka linear model
+
+```{r table6, echo=FALSE}
+
+model_parameters(malka_lm) %>% 
+  print_md()
+
+```
+
+## Sun-Br
+
+```{r report7, echo=FALSE, results='asis'}
+
+paste(
+  "For r.Sunzha - s.Braguny we fit a ",
+  report_model(sunbr_lm),
+  ". ",
+  report_performance(sunbr_lm)
+) %>% 
+  str_replace_all("ssl2", "SSD") %>% 
+  cat()
+
+```
+
+**Table 8.** Model parameters of the Sun-Br linear model
+
+```{r table7, echo=FALSE}
+
+model_parameters(sunbr_lm) %>% 
+  print_md()
+
+```
+
+## Uru-Kh
+
+```{r report8, echo=FALSE, results='asis'}
+
+paste(
+  "For r.Urukh - s.Khaznidon we fit a ",
+  report_model(urukh_lm),
+  ". ",
+  report_performance(urukh_lm)
+) %>% 
+  str_replace_all("ssl2", "SSD") %>% 
+  cat()
+
+```
+
+**Table 9.** Model parameters of the Uru-Kh linear model
+
+```{r table8, echo=FALSE}
+
+model_parameters(urukh_lm) %>% 
+  print_md()
+
+```
+
+## Fia-Ta
+
+```{r report9, echo=FALSE, results='asis'}
+
+paste(
+  "For r.Fiagdon - s.Tagardon we fit a ",
+  report_model(fiata_lm),
+  ". ",
+  report_performance(fiata_lm)
+) %>% 
+  str_replace_all("ssl2", "SSD") %>% 
+  cat()
+
+```
+
+**Table 10.** Model parameters of the Fia-Ta linear model
+
+```{r table9, echo=FALSE}
+
+model_parameters(fiata_lm) %>% 
+  print_md()
+
+```
