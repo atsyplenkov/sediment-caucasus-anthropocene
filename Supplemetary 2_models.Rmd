@@ -2,6 +2,8 @@
 title: "Supplementary 2"
 output: word_document
 bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
@@ -32,24 +34,91 @@ library(report)
 library(insight)
 library(parameters)
 library(performance)
+library(modelbased)
+library(extrafont)
+library(atslib)
+library(hydroGOF)
+
+theme_set(theme_hp())
 
 load("data/tidy/models.Rdata")
 ```
 
 ```{r model_compare, echo=FALSE, message=FALSE}
+get_orig <- function(x){
+  
+  res <- x$residuals
+  fit <- x$fitted.values
+  
+  tibble(res, fit) %>% 
+    mutate(orig = fit + res)
+  
+}
 
-compared <- performance::compare_performance(ardta_lm,
-                                 belko_lm,
-                                 cheba_lm,
-                                 chegnc_lm,
-                                 kamol_lm,
-                                 malka_lm,
-                                 sunbr_lm,
-                                 urukh_lm,
-                                 fiata_lm,
-                                 verbose = F)
+get_metrics <- function(x) {
+  
+  df <- get_orig(x)
+  
+  tibble(
+    Model = "Linear model",
+    `R2` = performance::r2(x)$R2,
+    RMSE = hydroGOF::rmse(df$fit,
+                          df$orig),
+    NRMSE = hydroGOF::nrmse(df$fit,
+                            df$orig),
+    NSE = hydroGOF::NSE(df$fit,
+                        df$orig),
+    KGE = hydroGOF::KGE(df$fit,
+                        df$orig)
+  )
+}
+
+compared <- list(ardta_lm,
+     belko_lm,
+     cheba_lm,
+     chegnc_lm,
+     kamol_lm,
+     malka_lm,
+     sunbr_lm,
+     urukh_lm,
+     fiata_lm) %>% 
+  set_names(
+    c('ardta_lm',
+      'belko_lm',
+      'cheba_lm',
+      'chegnc_lm',
+      'kamol_lm',
+      'malka_lm',
+      'sunbr_lm',
+      'urukh_lm',
+      'fiata_lm')) %>% 
+  map_df(get_metrics,
+         .id = "Names")
+
+# compared <- performance::compare_performance(ardta_lm,
+#                                  belko_lm,
+#                                  cheba_lm,
+#                                  chegnc_lm,
+#                                  kamol_lm,
+#                                  malka_lm,
+#                                  sunbr_lm,
+#                                  urukh_lm,
+#                                  fiata_lm,
+#                                  verbose = F)
 
 ```
+
+We fitted nine linear models for nine gauging stations:
+
+`ardta_lm` --- r.Ardon - s.Tamisk;
+`belko_lm` --- r.Belaya - s.Kora-Ursdon;
+`cheba_lm` --- r.Cherek Balkarskiy - pos.Babugent;
+`chegnc_lm` --- r.Chegem - s.Nizhniy Chegem;
+`kamol_lm` --- r.Kambileyevka - s.Olʹginskoye;
+`malka_lm` --- r.Malka - s.Kamennomostskoye;
+`sunbr_lm` --- r.Sunzha - s.Braguny;
+`urukh_lm` --- r.Urukh - s.Khaznidon;
+`fiata_lm` --- r.Fiagdon - s.Tagardon
 
 Models performance indices are compared in the Table 1 below. All models explain a significant and substantial proportion of variance (mean R^2^ is `r round(mean(compared$R2), 2)`).
 
@@ -85,6 +154,21 @@ model_parameters(ardta_lm) %>%
 
 ```
 
+```{r response1, echo=FALSE, fig.cap="Figure 1. Observed suspended sediment discharge versus their predicted values for Ardon-Tamisk gauging station. Values after Box-Cox transformation", fig.align='center', dpi=300}
+
+ardta_lm %>%
+  get_orig() %>% 
+  ggplot(aes(orig, fit)) +
+  Add_1_line() +
+  geom_point() +
+  lims(x = c(1, 4),
+       y = c(1, 4)) +
+  labs(x = "Observed",
+       y = "Predicted")
+
+```
+
+
 ## Bel-Ko
 
 ```{r report2, echo=FALSE, results='asis'}
@@ -108,6 +192,20 @@ model_parameters(belko_lm) %>%
   print_md()
 
 ```
+
+
+```{r response2, echo=FALSE, fig.cap="Figure 2. Observed suspended sediment discharge versus their predicted values for r.Belaya - s.Kora-Ursdon gauging station. Values after Box-Cox transformation.", fig.align='center', dpi=300}
+
+belko_lm %>%
+  get_orig() %>% 
+  ggplot(aes(orig, fit)) +
+  Add_1_line() +
+  geom_point() +
+  labs(x = "Observed",
+       y = "Predicted")
+
+```
+
 
 ## Che-Ba
 
@@ -133,6 +231,20 @@ model_parameters(cheba_lm) %>%
 
 ```
 
+
+```{r response3, echo=FALSE, fig.cap="Figure 3. Observed suspended sediment discharge versus their predicted values for r.Cherek Balkarskiy - pos.Babugent gauging station. Values after Box-Cox transformation", fig.align='center', dpi=300}
+
+cheba_lm %>%
+  get_orig() %>% 
+  ggplot(aes(orig, fit)) +
+  Add_1_line() +
+  geom_point() +
+  labs(x = "Observed",
+       y = "Predicted")
+
+```
+
+
 ## Cheg-Nc
 
 ```{r report4, echo=FALSE, results='asis'}
@@ -156,6 +268,20 @@ model_parameters(chegnc_lm) %>%
   print_md()
 
 ```
+
+
+```{r response4, echo=FALSE, fig.cap="Figure 4. Observed suspended sediment discharge versus their predicted values for r.Chegem - s.Nizhniy Chegem gauging station. Values after Box-Cox transformation", fig.align='center', dpi=300}
+
+cheba_lm %>%
+  get_orig() %>% 
+  ggplot(aes(orig, fit)) +
+  Add_1_line() +
+  geom_point() +
+  labs(x = "Observed",
+       y = "Predicted")
+
+```
+
 
 ## Kam-Ol
 
@@ -181,6 +307,19 @@ model_parameters(kamol_lm) %>%
 
 ```
 
+```{r response5, echo=FALSE, fig.cap="Figure 5. Observed suspended sediment discharge versus their predicted values for r.Kambileyevka - s.Olʹginskoye gauging station. Values after Box-Cox transformation", fig.align='center', dpi=300}
+
+kamol_lm %>%
+  get_orig() %>% 
+  ggplot(aes(orig, fit)) +
+  Add_1_line() +
+  geom_point() +
+  labs(x = "Observed",
+       y = "Predicted")
+
+```
+
+
 ## Mal-Ka
 
 ```{r report6, echo=FALSE, results='asis'}
@@ -205,6 +344,20 @@ model_parameters(malka_lm) %>%
 
 ```
 
+
+```{r response6, echo=FALSE, fig.cap="Figure 6. Observed suspended sediment discharge versus their predicted values for r.Malka - s.Kamennomostskoye gauging station. Values after Box-Cox transformation", fig.align='center', dpi=300}
+
+malka_lm %>%
+  get_orig() %>% 
+  ggplot(aes(orig, fit)) +
+  Add_1_line() +
+  geom_point() +
+  labs(x = "Observed",
+       y = "Predicted")
+
+```
+
+
 ## Sun-Br
 
 ```{r report7, echo=FALSE, results='asis'}
@@ -226,6 +379,18 @@ paste(
 
 model_parameters(sunbr_lm) %>% 
   print_md()
+
+```
+
+```{r response7, echo=FALSE, fig.cap="Figure 7. Observed suspended sediment discharge versus their predicted values for r.Sunzha - s.Braguny  gauging station. Values after Box-Cox transformation", fig.align='center', dpi=300}
+
+sunbr_lm %>%
+  get_orig() %>% 
+  ggplot(aes(orig, fit)) +
+  Add_1_line() +
+  geom_point() +
+  labs(x = "Observed",
+       y = "Predicted")
 
 ```
 
@@ -253,6 +418,18 @@ model_parameters(urukh_lm) %>%
 
 ```
 
+```{r response8, echo=FALSE, fig.cap="Figure 8. Observed suspended sediment discharge versus their predicted values for r.Urukh - s.Khaznidon gauging station. Values after Box-Cox transformation", fig.align='center', dpi=300}
+
+urukh_lm %>%
+  get_orig() %>% 
+  ggplot(aes(orig, fit)) +
+  Add_1_line() +
+  geom_point() +
+  labs(x = "Observed",
+       y = "Predicted")
+
+```
+
 ## Fia-Ta
 
 ```{r report9, echo=FALSE, results='asis'}
@@ -276,3 +453,17 @@ model_parameters(fiata_lm) %>%
   print_md()
 
 ```
+
+
+```{r response9, echo=FALSE, fig.cap="Figure 9. Observed suspended sediment discharge versus their predicted values for r.Fiagdon - s.Tagardon gauging station. Values after Box-Cox transformation", fig.align='center', dpi=300}
+
+fiata_lm %>%
+  get_orig() %>% 
+  ggplot(aes(orig, fit)) +
+  Add_1_line() +
+  geom_point() +
+  labs(x = "Observed",
+       y = "Predicted")
+
+```
+

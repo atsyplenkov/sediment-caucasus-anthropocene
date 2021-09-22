@@ -5,19 +5,11 @@ library(see)
 library(extrafont)
 library(readxl)
 library(stringi)
+library(factoextra)
 
 load("data/tidy/boot_results.Rdata")
 
-theme_set(
-  theme_lucid(legend.position = "bottom",
-              base_family = "Noto Sans") +
-    theme(panel.grid.minor.x = element_blank(),
-          panel.grid.minor.y = element_blank(),
-          panel.grid.major.x = element_blank(),
-          panel.grid.major.y = element_blank(),
-          strip.background = element_blank(),
-          axis.ticks = element_line(color = "grey50"))
-)
+theme_set(theme_hp())
 
 ter_gvk <- read_xlsx("data/raw/terek_SY.xlsx",
                      sheet = 1,
@@ -36,8 +28,8 @@ trend_dens <- ter_boot %>%
   dplyr::select(label,
                 id,
                 ssl = dec_change) %>% 
-  left_join(ter_gvk,
-            by = "label") %>% 
+  # left_join(ter_gvk,
+  #           by = "label") %>% 
   left_join(ter_alt,
             by = "label") %>% 
   drop_na(alt_group) %>% 
@@ -73,18 +65,22 @@ trend_dens <- ter_boot %>%
             size = 3,
             family = "Noto Sans",
             show.legend = F) +
-  coord_cartesian(xlim = c(-3.1, 1.5), ylim = c(-0.005, 1.05),
-                  expand = F) +
   scale_color_metro() +
   scale_fill_metro() +
+  coord_cartesian(xlim = c(-3.5, 2),
+                  ylim = c(-0.005, 1.05),
+                  expand = F) +
   labs(color = "Altitude group",
        fill = "Altitude group",
        x = expression("SSL change, %"%.%"yr"^-1),
        y = "Density") +
+  theme_hp() +
   theme(plot.margin = unit(c(0.1,
                              0.5, # right
                              -0.1, # bottom
                              0.1), "cm"))
+
+trend_dens
 
 # 0) Trend vs altitude ----------------------------------------------------
 ter_boot_ci %>% 
@@ -274,6 +270,10 @@ ter_boot_ci %>%
                 rename(lower = `2.5%`,
                        upper = `97.5%`),
               by = "label") %>% 
+   left_join(gl_unc %>% 
+               filter(year == 1986) %>% 
+               select(label, glacier),
+             by = "label") %>% 
     left_join(ter_alt,
               by = "label") %>% 
     mutate(alt_group = as_factor(alt_group)) %>% 
@@ -290,8 +290,9 @@ ter_boot_ci %>%
     geom_errorbar(aes(xmin = lower,
                       xmax = upper),
                   color = "grey70") +
-    geom_point(aes(fill = alt_group),
-               size = 2,
+    geom_point(aes(fill = alt_group,
+                   size = glacier),
+               # size = 2,
                color = "grey10",
                shape = 21) +
     geom_smooth(method = "lm",
@@ -309,6 +310,23 @@ ter_boot_ci %>%
          x = "Forest area in 1987, %",
          y = expression("SSL change, %"%.%"yr"^-1),
          color = "Altitude group: "))
+
+ter_boot_ci %>% 
+  left_join(forest_unc %>% 
+              filter(year == 1987) %>% 
+              rename(lower = `2.5%`,
+                     upper = `97.5%`),
+            by = "label") %>% 
+  left_join(gl_unc %>% 
+              filter(year == 1986) %>% 
+              select(label, glacier),
+            by = "label") %>% 
+  filter(glacier > 1) %>% 
+  ggplot(aes(glacier, forest)) +
+  geom_point() +
+  Add_R2() +
+  scale_x_log10() +
+  scale_y_log10()
 
 ter_boot_ci %>% 
   left_join(forest_unc %>% 
@@ -487,6 +505,10 @@ boot_cor_area_plot <- boot_cor_area %>%
              nrow = 2, ncol = 2) +
   theme(panel.grid.major.y = element_line(color = "grey80"),
         strip.background = element_blank())
+
+# 7) PCA ------------------------------------------------------------------
+
+
 
 # Combine -----------------------------------------------------------------
 trend_unc_plots <- ggpubr::ggarrange(trend_area, trend_glacier,

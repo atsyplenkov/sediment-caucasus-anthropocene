@@ -19,6 +19,8 @@ theme_set(
           axis.ticks = element_line(color = "grey50"))
 )
 
+theme_set(theme_hp())
+
 load("data/tidy/terraclim.Rdata")
 load("data/tidy/models.Rdata")
 
@@ -100,64 +102,6 @@ ssl_cu <- ssl_db %>%
   mutate(CDC = cumsum(K)/sy_cv) %>% 
   ungroup()
 
-set.seed(2021)
-ssl_unc <- ssl_cu %>% 
-  dplyr::select(label:flag,
-                K:CDC) %>% 
-  # group_by(year, label) %>% 
-  # nest() %>% 
-  # mutate(K_sim = map(data, ~unc_final(.x$CDC))) %>%
-  # unnest() %>% 
-  # ungroup() %>% 
-  # rename(K_low = `2.5%`,
-  #        K_up = `97.5%`) %>% 
-  group_by(year, label) %>% 
-  nest() %>% 
-  mutate(ssl_sim = map(data, ~unc_final(.x$ssl2))) %>%
-  unnest() %>% 
-  ungroup() %>% 
-  rename(ssl_low = `2.5%`,
-         ssl_up = `97.5%`) %>%
-  group_by(label) %>% 
-  mutate(sy_mean_low = mean(ssl_low),
-         sy_cv_low = sd(ssl_low)/sy_mean_low) %>% 
-  mutate(K_low = ssl_low/sy_mean_low - 1) %>%
-  mutate(CDC_low = cumsum(K_low)/sy_cv_low) %>% 
-  mutate(sy_mean_up = mean(ssl_up),
-         sy_cv_up = sd(ssl_up)/sy_mean_up) %>% 
-  mutate(K_up = ssl_up/sy_mean_up - 1) %>%
-  mutate(CDC_up = cumsum(K_up)/sy_cv_up)
-
-
-NO <- 8
-
-ssl_unc %>% 
-  filter(label == major_rivers[NO]) %>% 
-  ggplot(aes(x = year,
-             y = CDC)) +
-  geom_ribbon(aes(ymin = CDC_low,
-                  ymax = CDC_up),
-              alpha = .4) +
-  # geom_ribbon(aes(ymin = `2.5%`,
-  #                 ymax = `97.5%`),
-  #             alpha = .4) +
-  geom_line() +
-  # geom_point(aes(fill = flag),
-  #            shape = 21) +
-  coord_cartesian(clip = "off") +
-  labs(title = major_rivers[NO],
-       fill = "Mean Annual SSD",
-       color = "Changepoint test",
-       x = "",
-       y = "") +
-  scale_x_continuous(breaks = seq(1925, 2020, by = 10)) +
-  see::scale_color_metro(reverse = T) +
-  see::scale_fill_flat(reverse = T) +
-  theme(plot.margin = unit(c(0.1,
-                             0.5, # right
-                             -0.1, # bottom
-                             0.1), "cm"))
-
 # 4) Pettitt test ------------------------------------------------------------
 library(trend)
 pett <- ssl_db %>% 
@@ -208,33 +152,48 @@ cusum_plots <- major_rivers %>%
       geom_vline(data = ssl_taylor %>%
                    filter(gage == NO),
                  aes(xintercept = label,
+                     linetype = "(Taylor, 2000)",
                      color = "(Taylor, 2000)")) +        
       geom_vline(data = pett %>%
                    filter(label == NO),
                  aes(xintercept = break_year,
-                     color = "(Pettitt, 1979)"),
-                 linetype = "dashed") +  
+                     linetype = "(Pettitt, 1979)",
+                     color = "(Pettitt, 1979)")) +
+      geom_text(data = pett %>%
+                  filter(label == NO),
+                aes(x = break_year,
+                    y = Inf,
+                    label = break_year,
+                    hjust = 0.5,
+                    vjust = -1.2),
+                color = "#E51400",
+                size = 3,
+                family = "Roboto Condensed") +    
       geom_text(data = ssl_taylor %>%
                   filter(gage == NO),
                 aes(x = label,
                     y = Inf,
                     label = label,
                     hjust = 0.5,
-                    vjust = -0.5),
+                    vjust = -0.2),
                 size = 3,
+                color = "#647687",
                 family = "Roboto Condensed") +
       coord_cartesian(clip = "off") +
       labs(title = NO,
            fill = "Mean Annual SSD",
            color = "Changepoint test",
+           linetype = "Changepoint test",
            x = "",
            y = "") +
+      scale_linetype_manual(values = c("dashed",
+                                       "solid")) +
       scale_x_continuous(breaks = seq(1925, 2020, by = 10)) +
       see::scale_color_metro(reverse = T) +
       see::scale_fill_flat(reverse = T) +
       theme(plot.margin = unit(c(0.1,
-                                 0.5, # right
-                                 -0.1, # bottom
+                                 0.5, 
+                                 -0.1, 
                                  0.1), "cm"))) %>% 
   ggpubr::ggarrange(plotlist = .,
                     common.legend = T, 

@@ -18,7 +18,7 @@ all_rivers <- c("Bak-Pr", "Mal-Pa", "Mal-Pr", "Sun-Br",
 # 1) Load data ---------------------------------------------------
 dams <- st_read("data/spatial/terek_dam.shp")
 
-ter_bas <- st_read("data/spatial/ter_basins.shp") %>% 
+ter_bas <- st_read("data/spatial/ter_basins-stats.shp") %>% 
   st_drop_geometry() %>% 
   dplyr::select(-CROP_count)
 
@@ -118,7 +118,10 @@ ter_sy <- terek %>%
 
 # 4) Combine table 1 --------------------------------------------------------
 table1 <- ter_gvk %>% 
-  left_join(ter_bas,
+  left_join(ter_bas %>% 
+              transmute(label,
+                     H_min = round(HHmin),
+                     H_max = round(HHmax)),
             by = "label") %>% 
   left_join(ter_gages,
             by = "label") %>% 
@@ -134,7 +137,6 @@ table1 <- ter_gvk %>%
                 dam_effect = glue("reg. by {hpp} HPP since {first_year}")),
     by = "label"
   ) %>% 
-  dplyr::select(-H_mean:-H_range) %>% 
   # Altitude group
   mutate(alt_group = case_when(
     H <= 500 ~ "< 500",
@@ -172,6 +174,7 @@ table1 %>%
             Label = label,
             `Area (A), km2` = area,
             `Altitude, m` = H,
+            `Alt. range` = paste0(H_min, "-", H_max),
             `Mean annual suspended sediment discharge, kg/s` = atslib::smart_round(mean),
             `Number of mean annual SSD values, years` = mean_n,
             `Years range` = mean_range,

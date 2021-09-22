@@ -27,15 +27,15 @@ ter_alt <- st_read("data/spatial/ter_gages.shp") %>%
   st_drop_geometry() %>% 
   dplyr::select(label, H=H_mean) %>% 
   mutate(alt_group = case_when(
-    H <= 500 ~ "< 500",
-    dplyr::between(H, 500, 1000) ~ "500-1000",
-    H >= 1000 ~ "> 1000"
+    H <= 500 ~ "< 500 m a.s.l.",
+    dplyr::between(H, 500, 1000) ~ "500-1000 m a.s.l.",
+    H >= 1000 ~ "> 1000 m a.s.l."
   )) %>% 
   mutate(alt_group = as_factor(alt_group),
          alt_group = fct_relevel(alt_group,
-                                 c("< 500",
-                                   "500-1000",
-                                   "> 1000")))
+                                 c("< 500 m a.s.l.",
+                                   "500-1000 m a.s.l.",
+                                   "> 1000 m a.s.l.")))
 
 # 2) Data availability ----------------------------------------------------
 terek %>% 

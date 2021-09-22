@@ -11,17 +11,9 @@ library(truncnorm)
 library(sf)
 library(skimr)
 library(tgme)
+library(glue)
 
-theme_set(
-  theme_lucid(legend.position = "bottom",
-              base_family = "Noto Sans") +
-    theme(panel.grid.minor.x = element_blank(),
-          panel.grid.minor.y = element_blank(),
-          panel.grid.major.x = element_blank(),
-          panel.grid.major.y = element_blank(),
-          strip.background = element_blank(),
-          axis.ticks = element_line(color = "grey50"))
-)
+theme_set(theme_hp())
 
 major_rivers <- c("Ard-Ta",
                   "Bel-Ko",
@@ -85,11 +77,39 @@ ups_df <- rosgen %>%
   filter(size == "below4")
 
 # 2) Uncertainty ----------------------------------------------------------
+# unc_final <- function(x){
+#   
+#   ume <- rnorm(1000,
+#                mean = 1,
+#                sd = .3)
+#   
+#   ups <- truncnorm::rtruncnorm(1000,
+#                                a = ups_df$q0025/100,
+#                                b = ups_df$q0975/100,
+#                                mean = ups_df$mean/100, 
+#                                sd = ups_df$sd/100)
+#   
+#   sim <- x * ume + x * ups
+#   # sim <- x * ume + x / (1 / ups - 1)
+#   # sim <- x * ume + x / (1 / (1 - ups))
+#   
+#   quantile(sim, probs = c(0.025,
+#                           0.5,
+#                           0.975)) %>% 
+#     as.data.frame() %>% 
+#     rownames_to_column() %>%
+#     rename(val = 2) %>% 
+#     pivot_wider(names_from = rowname,
+#                 values_from = val) %>% 
+#     mutate(ssl_sim = list(data.frame(sim,
+#                                      id = 1:1000)))
+# }
+
 unc_final <- function(x){
   
   ume <- rnorm(1000,
                mean = 1,
-               sd = .2)
+               sd = .3)
   
   ups <- truncnorm::rtruncnorm(1000,
                                a = ups_df$q0025/100,
@@ -97,16 +117,20 @@ unc_final <- function(x){
                                mean = ups_df$mean/100, 
                                sd = ups_df$sd/100)
   
-  sim <- x * ume + x * ups
+  sim <- x * ume/(1-ups)
+  # sim <- x * ume + x / (1 / ups - 1)
+  # sim <- x * ume + x / (1 / (1 - ups))
   
-  quantile(sim, probs = c(0.025, 0.975)) %>% 
+  quantile(sim, probs = c(0.025,
+                          # 0.5,
+                          0.975)) %>% 
     as.data.frame() %>% 
     rownames_to_column() %>%
     rename(val = 2) %>% 
     pivot_wider(names_from = rowname,
                 values_from = val) %>% 
     mutate(ssl_sim = list(data.frame(sim,
-                                    id = 1:1000)))
+                                     id = 1:1000)))
 }
 
 set.seed(2021)
@@ -648,12 +672,25 @@ ter_boot_ci %>%
   mutate(alt_group = fct_relevel(alt_group,
                                  "< 500", "500-1000")) %>% 
   # group_by(alt_group) %>% 
-  filter(mean > 0) %>%
+  filter(label != "Giz-Gi") %>% 
+  filter(mean < 0) %>%
   skim()
 
+ter_boot_ci_1987 %>% 
+  drop_na(mean) %>% 
+  filter(mean < 0) %>% 
+  skim()
 
 ter_boot_ci_1987 %>% 
-  filter(label %in% c("Mal-Pr", "Sun-Br", "Sun-Gr", "Ter-Ch", "Ter-El", "Ter-Ka", "Ter-Ko", "Ter-Mo", "Ter-St", "Ard-Ta", "Bak-Za", "Bel-Ko", "Che-Ba", "Che-So", "Cheg-Nc", "Fia-Gu", "Fia-Ta", "Giz-Gi", "Kam-Ol", "Mal-Ka", "Mal-Kh", "Ter-Vl", "Uru-Kh", "Ard-Nz", "Cheg-Vc", "Fia-Vf")) %>% 
+  filter(label %in% c("Mal-Pr", "Sun-Br", "Sun-Gr",
+                      "Ter-Ch", "Ter-El", "Ter-Ka",
+                      "Ter-Ko", "Ter-Mo", "Ter-St",
+                      "Ard-Ta", "Bak-Za", "Bel-Ko",
+                      "Che-Ba", "Che-So", "Cheg-Nc",
+                      "Fia-Gu", "Fia-Ta", "Giz-Gi",
+                      "Kam-Ol", "Mal-Ka", "Mal-Kh",
+                      "Ter-Vl", "Uru-Kh", "Ard-Nz",
+                      "Cheg-Vc", "Fia-Vf")) %>% 
   mutate(tt = mean > 0) %>% 
   group_by(tt) %>%
   skim()
@@ -756,10 +793,72 @@ noter %>%
   geom_point() +
   atslib::Add_R2()
 
+# # 12) PCA -----------------------------------------------------------------
+# library(factoextra)
+# 
+# pca_boot <- boot_ci(ter_boot_ci) %>% 
+#   left_join(boot_ci(crop_boot_ci),
+#             by = "label") %>% 
+#   left_join(boot_ci(forest_boot_ci),
+#             by = "label") %>% 
+#   left_join(boot_ci(gl_boot_ci) ,
+#             by = "label") %>% 
+#   mutate_all(~as.character(.)) %>% 
+#   mutate_at(vars(ter:gl),
+#          ~as.numeric(str_split(., " ", simplify = T)[,1])) %>% 
+#   mutate(gl = ifelse(is.na(gl), 0, gl)) %>% 
+#   left_join(ter_alt,
+#             by = "label") %>% 
+#   drop_na() %>% 
+#   left_join(terratrends %>% 
+#               select(label,
+#                      contains("slope")),
+#             by = "label") %>% 
+#   left_join(ter_gvk %>% 
+#               select(-1),
+#             by = "label") %>% 
+#   mutate(alt_group = as_factor(alt_group)) %>% 
+#   mutate(alt_group = fct_relevel(alt_group,
+#                                  "< 500", "500-1000")) %>% 
+#   rename(Cropland = crop,
+#          Forest = forest,
+#          Glacier = gl,
+#          SSL = ter,
+#          Area = area,
+#          Altitude = altitude_m,
+#          Temperature = aet_slope,
+#          Precipitation = psum_slope,
+#          `S. Radiation` = srad_slope)
+# 
+# res.pca <- pca_boot %>% 
+#   select(-label,
+#          -alt_group) %>% 
+#   prcomp(scale = TRUE)
+# 
+# (pca_plot <-
+#     fviz_pca_biplot(res.pca,
+#                     addEllipses = T,
+#                     col.ind = pca_boot$alt_group,
+#                     col.var = "gray20",
+#                     repel = T,
+#                     palette = see::palette_metro()(3),
+#                     label = "var",
+#                     alpha = .3) +
+#     labs(title = "",
+#          # subtitle = "b",
+#          color = "Altitude group",
+#          shape = "Altitude group",
+#          fill = "Altitude group") +
+#     theme_hp() +
+#     theme(plot.margin = margin(rep(1, 4))))
+
 # SAVE --------------------------------------------------------------------
 ls()[str_detect(ls(), "boot")] %>%
   save(list = .,
        file = "data/tidy/boot_results.Rdata")
+
+save("ter_boot_ci", "forest_unc", "crop_unc", "gl_unc", "ter_alt",
+     file = "data/tidy/boot_results_for_pca.Rdata")
 
 ggsave("figures/fig3_trend-plots.png",
        plot = ter_trends,
@@ -773,3 +872,5 @@ table7 %>%
   mutate_if(is.numeric,
             ~atslib::smart_round(.)) %>% 
 writexl::write_xlsx("analysis/table7_comparison.xlsx")
+
+
