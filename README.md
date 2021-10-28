@@ -35,7 +35,6 @@ The names of the scripts are quite indicative, and each script is reasonably com
  - [Our other paper, which explores intra-event suspended sediment dynamics in the small glacierized basin in Caucaus mountins (Djankuat)][jss]
  - [For the same Djankuat basin we have also adopted a fingerprinting model to study sediment sources][catena]
  - [Study describing suspended sediment spatial patterns in the Caucasus mountains][piahs]
- - [Paper (Lizaga et al., 2020) describing the FingerPro model][fingerpro]
 
 [catena]: https://doi.org/10.1016/j.catena.2021.105285
 [jss]: https://doi.org/10.1007/s11368-020-02633-z
