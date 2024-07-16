@@ -2,7 +2,7 @@
 
 # How did the suspended sediment load change in the North Caucasus during the Anthropocene?
 
-This repository contains the main processing steps to explore suspended sediment load (SSL) temporal change in the Terek basin (North Caucasus) during the Anthropocene. It is meant to accompany a journal article ([*Tsyplenkov et al., 2021*][doi]). This study is part of the ongoing Russian Science Foundation project No. 19-17-00181: *«Quantitative assessment of the slope sediment flux and its changes in the Holocene for the Caucasus mountain rivers.»*
+This repository contains the main processing steps to explore suspended sediment load (SSL) temporal change in the Terek basin (North Caucasus) during the Anthropocene. It is meant to accompany a journal article ([*Tsyplenkov et al., 2021*][doi]). This study is part of the Russian Science Foundation project No. 19-17-00181: *«Quantitative assessment of the slope sediment flux and its changes in the Holocene for the Caucasus mountain rivers.»*
 
 For a deep introduction to the study, please refer to:
 >Tsyplenkov AS, Golosov VN, Belyakova PA. 2021. How did the suspended sediment load change in the North Caucasus during the Anthropocene? Hydrological Processes 35 (10): 1–20 DOI: 10.1002/hyp.14403
